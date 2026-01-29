@@ -88,6 +88,7 @@ class BandwidthMeasurementEngine {
   }
 
   finishRequestDuration = 1000; // download/upload duration (ms) to reach for stopping further measurements
+  abortRequestDuration = 0;
   getServerTime = cfGetServerTime; // method to extract server time from response
 
   #responseHook = r => r; // pipe-through of response objects
@@ -118,7 +119,6 @@ class BandwidthMeasurementEngine {
 
   // Public methods
   pause() {
-    clearTimeout(this.#currentNextMsmTimeoutId);
     this.#cancelCurrentMeasurement();
     this.#setRunning(false);
   }
@@ -144,8 +144,12 @@ class BandwidthMeasurementEngine {
   #minDuration = -Infinity; // of current measurement
   #throttleMs = 0;
   #estimatedServerTime = 0;
-  #currentFetchPromise = undefined;
-  #currentNextMsmTimeoutId = undefined;
+
+  /**
+   * Aborts the current measurement.
+   * @type AbortController
+   */
+  #currentAbortController = undefined;
 
   // Internal methods
   #setRunning(running) {
@@ -267,8 +271,29 @@ class BandwidthMeasurementEngine {
       this.#fetchOptions
     );
 
+    // AbortController and timeout is shared between all retries
+    if (this.#retries === 0) {
+      this.#currentAbortController = new AbortController();
+      if (this.abortRequestDuration) {
+        const abortTimeout = setTimeout(() => {
+          this.#cancelCurrentMeasurement();
+          this.#retries = 0;
+          this.#setRunning(false);
+          this.#onConnectionError(
+            `${isDown ? 'Download' : 'Upload'} measurement of ${numBytes} bytes aborted. Measurement exceeded bandwidthAbortRequestDuration (${this.abortRequestDuration}ms)`
+          );
+        }, this.abortRequestDuration);
+        this.#currentAbortController.signal.addEventListener('abort', () =>
+          clearTimeout(abortTimeout)
+        );
+      }
+    }
+
     let serverTime;
-    const curPromise = (this.#currentFetchPromise = fetch(url, fetchOpt)
+    fetch(url, {
+      ...fetchOpt,
+      signal: this.#currentAbortController.signal
+    })
       .then(r => {
         if (r.ok) return r;
         throw Error(r.statusText);
@@ -289,12 +314,7 @@ class BandwidthMeasurementEngine {
           return body;
         })
       )
-      .then((_, reject) => {
-        if (curPromise._cancel) {
-          reject('cancelled');
-          return;
-        }
-
+      .then(() => {
         const perf = performance.getEntriesByName(url).slice(-1)[0]; // get latest perf timing
         const timing = {
           transferSize: perf.transferSize,
@@ -343,16 +363,21 @@ class BandwidthMeasurementEngine {
         this.#retries = 0;
 
         if (this.#throttleMs) {
-          this.#currentNextMsmTimeoutId = setTimeout(
+          const throttleTimeout = setTimeout(
             () => this.#nextMeasurement(),
             this.#throttleMs
+          );
+          this.#currentAbortController.signal.addEventListener('abort', () =>
+            clearTimeout(throttleTimeout)
           );
         } else {
           this.#nextMeasurement();
         }
       })
       .catch(error => {
-        if (curPromise._cancel) return;
+        if (this.#currentAbortController.signal.aborted) {
+          return;
+        }
         console.warn(`Error fetching ${url}: ${error}`);
 
         if (this.#retries++ < MAX_RETRIES) {
@@ -364,12 +389,11 @@ class BandwidthMeasurementEngine {
             `Connection failed to ${url}. Gave up after ${MAX_RETRIES} retries.`
           );
         }
-      }));
+      });
   }
 
   #cancelCurrentMeasurement() {
-    const curPromise = this.#currentFetchPromise;
-    curPromise && (curPromise._cancel = true);
+    this.#currentAbortController.abort();
   }
 }
 

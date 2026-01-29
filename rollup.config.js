@@ -14,7 +14,8 @@ export default [
     output: [
       {
         format: 'es',
-        file: `dist/${fileName}.js`
+        file: `dist/${fileName}.js`,
+        sourcemap: true
       }
     ],
     external: [...Object.keys(dependencies || {})],
