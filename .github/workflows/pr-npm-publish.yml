@@ -42,7 +42,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org/
+      - run: npm i -g npm@latest
       - name: Git config
         run: |
           git config user.name github-actions[bot]
