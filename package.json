@@ -1,5 +1,5 @@
 {
-  "name": "@cloudflare/speedtest",
+  "name": "@thenacken/speedtest",
   "version": "1.7.0",
   "description": "Component to perform network speed tests against Cloudflare's edge network",
   "type": "module",
@@ -10,9 +10,9 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cloudflare/speedtest.git"
+    "url": "git+https://github.com/TheNacken/cloudflare-speedtest.git"
   },
-  "homepage": "https://github.com/cloudflare/speedtest",
+  "homepage": "https://github.com/TheNacken/cloudflare-speedtest",
   "keywords": [
     "cloudflare",
     "speed",
@@ -22,8 +22,10 @@
     "packet loss"
   ],
   "author": {
-    "name": "Vasco Asturiano",
-    "email": "vasco@cloudflare.com"
+    "name": "TheNacken"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "license": "MIT",
   "bugs": {

@@ -316,6 +316,7 @@ class MeasurementEngine {
           }
         );
         engine.fetchOptions = {
+          ...this.#config.fetchOptions,
           credentials: this.#config.includeCredentials ? 'include' : undefined
         };
 
@@ -368,6 +369,7 @@ class MeasurementEngine {
             }
           );
           engine.fetchOptions = {
+            ...this.#config.fetchOptions,
             credentials: this.#config.includeCredentials ? 'include' : undefined
           };
           engine.finishRequestDuration =
