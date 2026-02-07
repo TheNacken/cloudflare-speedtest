@@ -268,6 +268,7 @@ class BandwidthMeasurementEngine {
     );
 
     let serverTime;
+    const startTime = Date.now();
     const curPromise = (this.#currentFetchPromise = fetch(url, fetchOpt)
       .then(r => {
         if (r.ok) return r;
@@ -295,22 +296,53 @@ class BandwidthMeasurementEngine {
           return;
         }
 
-        const perf = performance.getEntriesByName(url).slice(-1)[0]; // get latest perf timing
-        const timing = {
-          transferSize: perf.transferSize,
-          ttfb: getTtfb(perf),
-          payloadDownloadTime: gePayloadDownload(perf),
-          serverTime: serverTime || -1,
-          measTime: new Date()
-        };
-        timing.ping = Math.max(
-          1e-2,
-          timing.ttfb - (serverTime || this.#estimatedServerTime)
-        ); // ttfb = network latency + server time
+        const endTime = Date.now();
+        const entries = performance.getEntriesByName(url);
+        const perf = entries.length > 0 ? entries.slice(-1)[0] : null;
 
-        timing.duration = (isDown ? calcDownloadDuration : calcUploadDuration)(
-          timing
-        );
+        let timing;
+        if (perf) {
+          timing = {
+            transferSize: perf.transferSize,
+            ttfb: getTtfb(perf),
+            payloadDownloadTime: gePayloadDownload(perf),
+            serverTime: serverTime || -1,
+            measTime: new Date()
+          };
+          timing.ping = Math.max(
+            1e-2,
+            timing.ttfb - (serverTime || this.#estimatedServerTime)
+          );
+        } else {
+          // Fallback for Node.js where performance.getEntriesByName might be empty
+          const totalDuration = endTime - startTime;
+          timing = {
+            transferSize: null, // Triggers fallback in calcDownloadSpeed
+            ttfb: serverTime || totalDuration * 0.1,
+            payloadDownloadTime: totalDuration,
+            serverTime: serverTime || -1,
+            measTime: new Date(),
+            duration: totalDuration
+          };
+          timing.ping = Math.max(
+            1e-2,
+            totalDuration - (serverTime || this.#estimatedServerTime)
+          );
+        }
+
+        if (perf) {
+          timing.duration = (
+            isDown ? calcDownloadDuration : calcUploadDuration
+          )(timing);
+        } else {
+          const totalDuration = endTime - startTime;
+          if (isDown) {
+            timing.duration = totalDuration - (serverTime || 0);
+          } else {
+            timing.duration = timing.ttfb;
+          }
+        }
+
         timing.bps = (isDown ? calcDownloadSpeed : calcUploadSpeed)(
           timing,
           numBytes
