@@ -150,6 +150,7 @@ class BandwidthMeasurementEngine {
    * @type AbortController
    */
   #currentAbortController = undefined;
+  #currentFetchPromise = undefined;
 
   // Internal methods
   #setRunning(running) {
@@ -426,7 +427,7 @@ class BandwidthMeasurementEngine {
             `Connection failed to ${url}. Gave up after ${MAX_RETRIES} retries.`
           );
         }
-      });
+      }));
   }
 
   #cancelCurrentMeasurement() {
