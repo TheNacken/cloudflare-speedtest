@@ -32,6 +32,7 @@ export interface ConfigOptions {
   measureUploadLoadedLatency?: boolean,
   loadedLatencyThrottle?: number,
   bandwidthFinishRequestDuration?: number,
+  bandwidthAbortRequestDuration?: number,
   estimatedServerTime?: number;
 
   // Result interpretation
@@ -112,6 +113,7 @@ declare class SpeedTestEngine {
 
   onRunningChange: (running: boolean) => void;
   onResultsChange: ({ type: string }) => void;
+  onPhaseChange: ({ measurement: MeasurementConfig, measurementId: number }) => void;
   onFinish: (results: Results) => void;
   onError: (error: string) => void;
 }

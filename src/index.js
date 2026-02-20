@@ -39,6 +39,7 @@ class MeasurementEngine {
 
   onRunningChange = () => {};
   onResultsChange = () => {};
+  onPhaseChange = () => {};
 
   #onFinish = () => {}; // callback invoked when all the measurements are finished
   set onFinish(f) {
@@ -58,6 +59,12 @@ class MeasurementEngine {
 
   play() {
     if (!this.#running) {
+      // Clear timings before running the engine
+      performance.clearResourceTimings();
+
+      // Default is 250. This can mean the buffer is filled between measurements if many requests are being done
+      // in the same page the engine is running.
+      performance.setResourceTimingBufferSize(10000);
       this.#setRunning(true);
       this.#next();
     }
@@ -158,6 +165,11 @@ class MeasurementEngine {
 
     const { type, ...msmConfig } = this.#config.measurements[this.#curMsmIdx];
     const msmResults = this.#curTypeResults();
+
+    this.onPhaseChange({
+      measurementId: this.#curMsmIdx,
+      measurement: { type, ...msmConfig }
+    });
 
     const { downloadApiUrl, uploadApiUrl, estimatedServerTime } = this.#config;
 
@@ -319,6 +331,8 @@ class MeasurementEngine {
           ...this.#config.fetchOptions,
           credentials: this.#config.includeCredentials ? 'include' : undefined
         };
+        engine.abortRequestDuration =
+          this.#config.bandwidthAbortRequestDuration;
 
         engine.onMeasurementResult = engine.onNewMeasurementStarted = (
           meas,
@@ -374,6 +388,8 @@ class MeasurementEngine {
           };
           engine.finishRequestDuration =
             this.#config.bandwidthFinishRequestDuration;
+          engine.abortRequestDuration =
+            this.#config.bandwidthAbortRequestDuration;
 
           engine.onNewMeasurementStarted = ({ count, bytes }) => {
             const res = (msmResults.results = Object.assign(
